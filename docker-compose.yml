@@ -1,0 +1,48 @@
+# docker-compose up --build
+# docker-compose down
+
+version: '3.8'
+
+services:
+  mcp-server:
+    build: 
+      context: ./mcp_server
+    ports:
+      # Maps Windows port 8080 to container port 8080
+      - "8080:8080"
+    environment:
+      - PORT=8080
+
+  it-agent:
+    build: 
+      context: ./it_agent
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
+      - MCP_SERVER_URL=http://mcp-server:8080/mcp
+    ports:
+      # Maps Windows port 8082 to container port 8080
+      - "8082:8080" 
+    depends_on:
+      - mcp-server
+    stdin_open: true 
+    tty: true
+
+  hr-agent:
+    build: 
+      context: ./hr_agent
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
+      - MCP_SERVER_URL=http://mcp-server:8080/mcp
+    ports:
+      # Maps Windows port 8081 to container port 8080
+      - "8081:8080" 
+    depends_on:
+      - mcp-server
+    stdin_open: true
+    tty: true
