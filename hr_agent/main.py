@@ -12,7 +12,7 @@ async def agent_card():
         "protocolVersion": "0.3.0",
         "name": "HR Agent",
         "description": "HR関連業務の処理：従業員情報の照会、入社プロセス",
-        "url": "https://hr-agent.<CONTAINER_APPS_ENV>.japaneast.azurecontainerapps.io/",
+        "url": "https://hr-agent.mangobeach-77bfed4b.japaneast.azurecontainerapps.io/",
         "preferredTransport": "JSONRPC",
         "defaultInputModes": ["text/plain", "application/json"],
         "defaultOutputModes": ["text/plain", "application/json"],

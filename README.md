@@ -86,6 +86,7 @@ Set the following environment variables before running the services:
     export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
     export AZURE_OPENAI_API_KEY="your-api-key-here"
     export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-5-mini"
+    export AZURE_OPENAI_API_VERSION="2024-12-01-preview"
     ```
 
 3.  Run the deployment script:

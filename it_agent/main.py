@@ -12,7 +12,7 @@ async def agent_card():
         "protocolVersion": "0.3.0",
         "name": "IT Agent",
         "description": "IT機器関連業務の処理：機器の照会と割り当て",
-        "url": "https://it-agent.<CONTAINER_APPS_ENV>.japaneast.azurecontainerapps.io/",
+        "url": "https://it-agent.mangobeach-77bfed4b.japaneast.azurecontainerapps.io/",
         "preferredTransport": "JSONRPC",
         "defaultInputModes": ["text/plain", "application/json"],
         "defaultOutputModes": ["text/plain", "application/json"],
