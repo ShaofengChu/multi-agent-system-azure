@@ -46,3 +46,18 @@ services:
       - mcp-server
     stdin_open: true
     tty: true
+
+  salesforce-agent:
+    build: 
+      context: ./salesforce_agent
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
+      - SALESFORCE_MCP_SERVER_URL=https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp
+    ports:
+      # Maps Windows port 8083 to container port 8080
+      - "8083:8080"
+    stdin_open: true
+    tty: true

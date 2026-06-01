@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ============================================================
 # Azure Container Apps Deployment Script
-# Deploys: MCP Server, HR Agent, IT Agent
+# Deploys: MCP Server, HR Agent, IT Agent, Salesforce Agent
 # Idempotent: safe to re-run after a partial or failed run.
 # ============================================================
 
@@ -127,9 +127,12 @@ az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
 az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
     --image it-agent:latest --file ./it_agent/Dockerfile ./it_agent
 
+az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
+    --image salesforce-agent:latest --file ./salesforce_agent/Dockerfile ./salesforce_agent
+
 # --- Step 4: Deploy MCP Server ---
 echo ""
-echo "▶ 1/3 Deploying MCP Server..."
+echo "▶ 1/4 Deploying MCP Server..."
 deploy_containerapp "mcp-server" \
     "${ACR_LOGIN_SERVER}/mcp-server:latest" \
     "external" \
@@ -149,7 +152,7 @@ echo "   MCP URL: $MCP_URL"
 
 # --- Step 5: Deploy HR Agent ---
 echo ""
-echo "▶ 2/3 Deploying HR Agent..."
+echo "▶ 2/4 Deploying HR Agent..."
 deploy_containerapp "hr-agent" \
     "${ACR_LOGIN_SERVER}/hr-agent:latest" \
     "external" \
@@ -166,7 +169,7 @@ HR_FQDN=$(az containerapp show \
 
 # --- Step 6: Deploy IT Agent ---
 echo ""
-echo "▶ 3/3 Deploying IT Agent..."
+echo "▶ 3/4 Deploying IT Agent..."
 deploy_containerapp "it-agent" \
     "${ACR_LOGIN_SERVER}/it-agent:latest" \
     "external" \
@@ -181,13 +184,32 @@ IT_FQDN=$(az containerapp show \
     --resource-group "$RESOURCE_GROUP" \
     --query "properties.configuration.ingress.fqdn" -o tsv)
 
+# --- Step 7: Deploy Salesforce Agent ---
+SALESFORCE_MCP_URL="${SALESFORCE_MCP_SERVER_URL:-https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp}"
+echo ""
+echo "▶ 4/4 Deploying Salesforce Agent..."
+deploy_containerapp "salesforce-agent" \
+    "${ACR_LOGIN_SERVER}/salesforce-agent:latest" \
+    "external" \
+    "SALESFORCE_MCP_SERVER_URL=${SALESFORCE_MCP_URL}" \
+    "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
+    "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
+    "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
+    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
+
+SF_FQDN=$(az containerapp show \
+    --name salesforce-agent \
+    --resource-group "$RESOURCE_GROUP" \
+    --query "properties.configuration.ingress.fqdn" -o tsv)
+
 # --- Done ---
 echo ""
 echo "✅ Deployment completed!"
 echo ""
 echo "📋 Service URLs:"
 echo "   MCP Server (internal): $MCP_URL"
-echo "   HR Agent:  https://${HR_FQDN}"
-echo "   IT Agent:  https://${IT_FQDN}"
+echo "   HR Agent:              https://${HR_FQDN}"
+echo "   IT Agent:              https://${IT_FQDN}"
+echo "   Salesforce Agent:      https://${SF_FQDN}"
 echo ""
-echo "🔗 Update agent card URLs in hr_agent/main.py and it_agent/main.py with the URLs above."
+echo "🔗 Update agent card URLs in hr_agent/main.py, it_agent/main.py, and salesforce_agent/main.py with the URLs above."
