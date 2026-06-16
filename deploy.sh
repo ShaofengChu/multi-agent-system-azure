@@ -1,3 +1,14 @@
+# Cloud Deploymentには下記環境変数を設定してください。
+# export AZURE_OPENAI_ENDPOINT=
+# export AZURE_OPENAI_API_KEY=
+# export AZURE_OPENAI_API_VERSION=
+# export AZURE_OPENAI_DEPLOYMENT_NAME=
+# export SALESFORCE_MCP_SERVER_URL=
+# export AZURE_TENANT_ID=
+# export AZURE_AUDIENCE_IT=Application (client) ID
+# export AZURE_AUDIENCE_HR=Application (client) ID
+# export AZURE_AUDIENCE_SF=Application (client) ID
+
 #!/bin/bash
 set -euo pipefail
 

@@ -1,3 +1,13 @@
+# ローカルデプロイには.envファイルを作成して、下記環境変数を設定してください。
+# AZURE_OPENAI_ENDPOINT=
+# AZURE_OPENAI_API_KEY=
+# AZURE_OPENAI_API_VERSION=
+# AZURE_OPENAI_DEPLOYMENT_NAME=
+# SALESFORCE_MCP_SERVER_URL=
+# AZURE_TENANT_ID=
+# AZURE_AUDIENCE_IT=Application (client) ID
+# AZURE_AUDIENCE_HR=Application (client) ID
+# AZURE_AUDIENCE_SF=Application (client) ID
 # docker-compose up --build
 # docker-compose down
 
@@ -22,6 +32,9 @@ services:
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
       - MCP_SERVER_URL=http://mcp-server:8080/mcp
+      # --- 追加: Azure Entra ID 認証用の環境変数 ---
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_AUDIENCE=${AZURE_AUDIENCE_IT:-api://it-agent-client-id}
     ports:
       # Maps Windows port 8082 to container port 8080
       - "8082:8080" 
@@ -39,6 +52,9 @@ services:
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
       - MCP_SERVER_URL=http://mcp-server:8080/mcp
+      # --- 追加: Azure Entra ID 認証用の環境変数 ---
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_AUDIENCE=${AZURE_AUDIENCE_HR:-api://hr-agent-client-id}
     ports:
       # Maps Windows port 8081 to container port 8080
       - "8081:8080" 
@@ -56,6 +72,9 @@ services:
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
       - SALESFORCE_MCP_SERVER_URL=https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp
+      # --- 追加: Azure Entra ID 認証用の環境変数 ---
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_AUDIENCE=${AZURE_AUDIENCE_SF:-api://salesforce-agent-client-id}
     ports:
       # Maps Windows port 8083 to container port 8080
       - "8083:8080"
