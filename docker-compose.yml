@@ -1,13 +1,9 @@
-# ローカルデプロイには.envファイルを作成して、下記環境変数を設定してください。
+# ローカルデプロイには .env ファイルを作成して、下記環境変数を設定してください。
 # AZURE_OPENAI_ENDPOINT=
 # AZURE_OPENAI_API_KEY=
 # AZURE_OPENAI_API_VERSION=
 # AZURE_OPENAI_DEPLOYMENT_NAME=
 # SALESFORCE_MCP_SERVER_URL=
-# AZURE_TENANT_ID=
-# AZURE_AUDIENCE_IT=Application (client) ID
-# AZURE_AUDIENCE_HR=Application (client) ID
-# AZURE_AUDIENCE_SF=Application (client) ID
 # docker-compose up --build
 # docker-compose down
 
@@ -15,68 +11,92 @@ version: '3.8'
 
 services:
   mcp-server:
-    build: 
+    build:
       context: ./mcp_server
-    ports:
-      # Maps Windows port 8080 to container port 8080
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       - PORT=8080
-
-  it-agent:
-    build: 
-      context: ./it_agent
-    environment:
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
-      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
-      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - MCP_SERVER_URL=http://mcp-server:8080/mcp
-      # --- 追加: Azure Entra ID 認証用の環境変数 ---
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_AUDIENCE=${AZURE_AUDIENCE_IT:-api://it-agent-client-id}
-    ports:
-      # Maps Windows port 8082 to container port 8080
-      - "8082:8080" 
-    depends_on:
-      - mcp-server
-    stdin_open: true 
-    tty: true
+    networks:
+      - agent_internal_net
 
   hr-agent:
-    build: 
+    build:
       context: ./hr_agent
+    expose:
+      - "8080"
     environment:
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
       - MCP_SERVER_URL=http://mcp-server:8080/mcp
-      # --- 追加: Azure Entra ID 認証用の環境変数 ---
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_AUDIENCE=${AZURE_AUDIENCE_HR:-api://hr-agent-client-id}
-    ports:
-      # Maps Windows port 8081 to container port 8080
-      - "8081:8080" 
+      - AGENT_URL=http://hr-agent:8080
     depends_on:
       - mcp-server
+    networks:
+      - agent_internal_net
+    stdin_open: true
+    tty: true
+
+  it-agent:
+    build:
+      context: ./it_agent
+    expose:
+      - "8080"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
+      - MCP_SERVER_URL=http://mcp-server:8080/mcp
+      - AGENT_URL=http://it-agent:8080
+    depends_on:
+      - mcp-server
+    networks:
+      - agent_internal_net
     stdin_open: true
     tty: true
 
   salesforce-agent:
-    build: 
+    build:
       context: ./salesforce_agent
+    expose:
+      - "8080"
     environment:
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - SALESFORCE_MCP_SERVER_URL=https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp
-      # --- 追加: Azure Entra ID 認証用の環境変数 ---
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_AUDIENCE=${AZURE_AUDIENCE_SF:-api://salesforce-agent-client-id}
-    ports:
-      # Maps Windows port 8083 to container port 8080
-      - "8083:8080"
+      - SALESFORCE_MCP_SERVER_URL=${SALESFORCE_MCP_SERVER_URL:-https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp}
+      - AGENT_URL=http://salesforce-agent:8080
+    networks:
+      - agent_internal_net
     stdin_open: true
     tty: true
+
+  main-agent:
+    build:
+      context: ./main_agent
+    ports:
+      - "8000:8000"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
+      - HR_AGENT_URL=http://hr-agent:8080
+      - IT_AGENT_URL=http://it-agent:8080
+      - SALESFORCE_AGENT_URL=http://salesforce-agent:8080
+    depends_on:
+      - hr-agent
+      - it-agent
+      - salesforce-agent
+    networks:
+      - agent_internal_net
+    stdin_open: true
+    tty: true
+
+networks:
+  agent_internal_net:
+    driver: bridge

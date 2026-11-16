@@ -1,20 +1,18 @@
 #!/bin/bash
-# Cloud Deploymentには下記環境変数を設定してください。
+# Cloud Deployment には下記環境変数を設定してください。
 # export AZURE_OPENAI_ENDPOINT=
 # export AZURE_OPENAI_API_KEY=
 # export AZURE_OPENAI_API_VERSION=
 # export AZURE_OPENAI_DEPLOYMENT_NAME=
 # export SALESFORCE_MCP_SERVER_URL=
-# export AZURE_TENANT_ID=
-# export AZURE_AUDIENCE_IT=Application (client) ID
-# export AZURE_AUDIENCE_HR=Application (client) ID
-# export AZURE_AUDIENCE_SF=Application (client) ID
 
 set -euo pipefail
 
 # ============================================================
 # Azure Container Apps Deployment Script
-# Deploys: MCP Server, HR Agent, IT Agent, Salesforce Agent
+# Deploys:
+#   - Internal only: MCP Server, HR Agent, IT Agent, Salesforce Agent
+#   - External only: Main Agent (A2A Orchestrator)
 # Idempotent: safe to re-run after a partial or failed run.
 # ============================================================
 
@@ -27,10 +25,6 @@ ACR_NAME="multiagentsystemacr"
 # Ensure required env vars are set
 : "${AZURE_OPENAI_ENDPOINT:?Set AZURE_OPENAI_ENDPOINT}"
 : "${AZURE_OPENAI_API_KEY:?Set AZURE_OPENAI_API_KEY}"
-: "${AZURE_TENANT_ID:?Set AZURE_TENANT_ID}"
-: "${AZURE_AUDIENCE_IT:?Set AZURE_AUDIENCE_IT}"
-: "${AZURE_AUDIENCE_HR:?Set AZURE_AUDIENCE_HR}"
-: "${AZURE_AUDIENCE_SF:?Set AZURE_AUDIENCE_SF}"
 AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}"
 AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}"
 
@@ -39,12 +33,13 @@ echo "🌏 Location       : $LOCATION"
 echo "🔧 Environment    : $ENVIRONMENT_NAME"
 
 # --- Helper: create or update a Container App ---
-# Usage: deploy_app <app-name> <image> <ingress-type> <env-vars...>
+# Usage: deploy_containerapp <app-name> <image> <ingress-type> <target-port> <env-vars...>
 deploy_containerapp() {
     local APP_NAME="$1"
     local IMAGE="$2"
     local INGRESS="$3"
-    shift 3
+    local TARGET_PORT="$4"
+    shift 4
     local ENV_VARS=("$@")
 
     APP_EXISTS=$(az containerapp show \
@@ -53,7 +48,7 @@ deploy_containerapp() {
         --query "name" -o tsv 2>/dev/null || echo "")
 
     if [ -z "$APP_EXISTS" ]; then
-        echo "   Creating $APP_NAME..."
+        echo "   Creating $APP_NAME (ingress=$INGRESS, target-port=$TARGET_PORT)..."
         az containerapp create \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
@@ -62,12 +57,17 @@ deploy_containerapp() {
             --registry-server "$ACR_LOGIN_SERVER" \
             --registry-username "$ACR_NAME" \
             --registry-password "$ACR_PASSWORD" \
-            --target-port 8080 \
+            --target-port "$TARGET_PORT" \
             --ingress "$INGRESS" \
             --min-replicas 1 \
             --env-vars "${ENV_VARS[@]}"
     else
-        echo "   Updating $APP_NAME..."
+        echo "   Updating $APP_NAME (ingress=$INGRESS, target-port=$TARGET_PORT)..."
+        az containerapp ingress enable \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --type "$INGRESS" \
+            --target-port "$TARGET_PORT"
         az containerapp update \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
@@ -81,7 +81,7 @@ az extension add --name containerapp --upgrade --yes 2>/dev/null || true
 
 # --- Step 1: Create ACR (if needed) ---
 echo ""
-echo "▶ 0/3 Ensuring Azure Container Registry..."
+echo "▶ Ensuring Azure Container Registry..."
 ACR_EXISTS=$(az acr list \
     --resource-group "$RESOURCE_GROUP" \
     --query "[0].name" -o tsv 2>/dev/null || echo "")
@@ -145,92 +145,100 @@ az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
 az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
     --image salesforce-agent:latest --file ./salesforce_agent/Dockerfile ./salesforce_agent
 
-# --- Step 4: Deploy MCP Server ---
+az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
+    --image main-agent:latest --file ./main_agent/Dockerfile ./main_agent
+
+# --- Step 4: Deploy MCP Server (Internal Ingress) ---
 echo ""
-echo "▶ 1/4 Deploying MCP Server..."
+echo "▶ 1/5 Deploying MCP Server (internal)..."
 deploy_containerapp "mcp-server" \
     "${ACR_LOGIN_SERVER}/mcp-server:latest" \
-    "external" \
+    "internal" \
+    "8080" \
     "PORT=8080"
 
-MCP_FQDN=$(az containerapp show \
-    --name mcp-server \
-    --resource-group "$RESOURCE_GROUP" \
-    --query "properties.configuration.ingress.fqdn" -o tsv)
+MCP_URL="http://mcp-server/mcp"
+echo "   MCP Internal URL: $MCP_URL"
 
-# Abort early if the FQDN could not be retrieved, to avoid deploying agents
-# with a silently broken MCP_SERVER_URL.
-: "${MCP_FQDN:?Failed to retrieve MCP Server FQDN. Check the mcp-server deployment.}"
-
-MCP_URL="https://${MCP_FQDN}/mcp"
-echo "   MCP URL: $MCP_URL"
-
-# --- Step 5: Deploy HR Agent ---
+# --- Step 5: Deploy HR Agent (Internal Ingress) ---
 echo ""
-echo "▶ 2/4 Deploying HR Agent..."
+echo "▶ 2/5 Deploying HR Agent (internal)..."
+HR_INTERNAL_URL="http://hr-agent"
 deploy_containerapp "hr-agent" \
     "${ACR_LOGIN_SERVER}/hr-agent:latest" \
-    "external" \
+    "internal" \
+    "8080" \
     "MCP_SERVER_URL=${MCP_URL}" \
+    "AGENT_URL=${HR_INTERNAL_URL}" \
     "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
     "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
     "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
-    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}" \
-    "AZURE_TENANT_ID=${AZURE_TENANT_ID}" \
-    "AZURE_AUDIENCE=${AZURE_AUDIENCE_HR}"
+    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
 
-HR_FQDN=$(az containerapp show \
-    --name hr-agent \
-    --resource-group "$RESOURCE_GROUP" \
-    --query "properties.configuration.ingress.fqdn" -o tsv)
-
-# --- Step 6: Deploy IT Agent ---
+# --- Step 6: Deploy IT Agent (Internal Ingress) ---
 echo ""
-echo "▶ 3/4 Deploying IT Agent..."
+echo "▶ 3/5 Deploying IT Agent (internal)..."
+IT_INTERNAL_URL="http://it-agent"
 deploy_containerapp "it-agent" \
     "${ACR_LOGIN_SERVER}/it-agent:latest" \
-    "external" \
+    "internal" \
+    "8080" \
     "MCP_SERVER_URL=${MCP_URL}" \
+    "AGENT_URL=${IT_INTERNAL_URL}" \
     "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
     "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
     "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
-    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}" \
-    "AZURE_TENANT_ID=${AZURE_TENANT_ID}" \
-    "AZURE_AUDIENCE=${AZURE_AUDIENCE_IT}"
+    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
 
-IT_FQDN=$(az containerapp show \
-    --name it-agent \
-    --resource-group "$RESOURCE_GROUP" \
-    --query "properties.configuration.ingress.fqdn" -o tsv)
-
-# --- Step 7: Deploy Salesforce Agent ---
+# --- Step 7: Deploy Salesforce Agent (Internal Ingress) ---
 SALESFORCE_MCP_URL="${SALESFORCE_MCP_SERVER_URL:-https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp}"
+SF_INTERNAL_URL="http://salesforce-agent"
 echo ""
-echo "▶ 4/4 Deploying Salesforce Agent..."
+echo "▶ 4/5 Deploying Salesforce Agent (internal)..."
 deploy_containerapp "salesforce-agent" \
     "${ACR_LOGIN_SERVER}/salesforce-agent:latest" \
-    "external" \
+    "internal" \
+    "8080" \
     "SALESFORCE_MCP_SERVER_URL=${SALESFORCE_MCP_URL}" \
+    "AGENT_URL=${SF_INTERNAL_URL}" \
     "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
     "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
     "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
-    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}" \
-    "AZURE_TENANT_ID=${AZURE_TENANT_ID}" \
-    "AZURE_AUDIENCE=${AZURE_AUDIENCE_SF}"
+    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
 
-SF_FQDN=$(az containerapp show \
-    --name salesforce-agent \
+# --- Step 8: Deploy Main Agent Orchestrator (External Ingress) ---
+echo ""
+echo "▶ 5/5 Deploying Main Agent (external)..."
+deploy_containerapp "main-agent" \
+    "${ACR_LOGIN_SERVER}/main-agent:latest" \
+    "external" \
+    "8000" \
+    "HR_AGENT_URL=${HR_INTERNAL_URL}" \
+    "IT_AGENT_URL=${IT_INTERNAL_URL}" \
+    "SALESFORCE_AGENT_URL=${SF_INTERNAL_URL}" \
+    "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
+    "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
+    "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
+    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
+
+MAIN_FQDN=$(az containerapp show \
+    --name main-agent \
     --resource-group "$RESOURCE_GROUP" \
     --query "properties.configuration.ingress.fqdn" -o tsv)
+
+: "${MAIN_FQDN:?Failed to retrieve Main Agent FQDN. Check the main-agent deployment.}"
 
 # --- Done ---
 echo ""
 echo "✅ Deployment completed!"
 echo ""
-echo "📋 Service URLs:"
-echo "   MCP Server (internal): $MCP_URL"
-echo "   HR Agent:              https://${HR_FQDN}"
-echo "   IT Agent:              https://${IT_FQDN}"
-echo "   Salesforce Agent:      https://${SF_FQDN}"
+echo "🌐 External Endpoint (Main Agent):"
+echo "   https://${MAIN_FQDN}"
+echo "   Chat API : https://${MAIN_FQDN}/chat"
+echo "   Health   : https://${MAIN_FQDN}/health"
 echo ""
-echo "🔗 Update agent card URLs in hr_agent/main.py, it_agent/main.py, and salesforce_agent/main.py with the URLs above."
+echo "🔒 Internal-Only Services (ACA Environment Internal Ingress):"
+echo "   MCP Server       : $MCP_URL"
+echo "   HR Agent         : $HR_INTERNAL_URL"
+echo "   IT Agent         : $IT_INTERNAL_URL"
+echo "   Salesforce Agent : $SF_INTERNAL_URL"

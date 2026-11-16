@@ -3,5 +3,4 @@ uvicorn
 openai
 mcp
 pydantic
-PyJWT
-cryptography
+httpx
