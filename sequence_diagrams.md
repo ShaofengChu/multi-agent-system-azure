@@ -357,3 +357,206 @@ sequenceDiagram
     Main-->>Client: 400 Bad Request
     Note left of Main: [Response 400 Bad Request]<br/>Headers: Content-Type: application/json<br/>Body:<br/>{<br/>  "detail": "リクエストボディに空でない 'message' または 'query' を指定してください。"<br/>}
 ```
+
+
+---
+
+# 簡易版シーケンス図（全体通信フロー）
+
+以下は、各ケースの送受信パラメータ詳細を省略し、全体の通信経路と処理の流れを俯瞰するための簡易版シーケンス図です。
+
+---
+
+## 0-A（簡易版）. 【共通】起動時 / 未取得時の Agent Card 動的ディスカバリ
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Main as main-agent
+    participant HR as hr-agent
+    participant IT as it-agent
+    participant SF as salesforce-agent
+
+    par 並列ディスカバリ
+        Main->>HR: GET /.well-known/agent.json
+        HR-->>Main: 200 OK (Agent Card)
+    and
+        Main->>IT: GET /.well-known/agent.json
+        IT-->>Main: 200 OK (Agent Card)
+    and
+        Main->>SF: GET /.well-known/agent.json
+        SF-->>Main: 200 OK (Agent Card)
+    end
+    Note over Main: 各スキルを OpenAI Tool に動的登録
+```
+
+---
+
+## テストケース 0（簡易版）：ヘルスチェック (`GET /health`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+
+    Client->>Main: GET /health
+    Main-->>Client: 200 OK (稼働確認)
+```
+
+---
+
+## テストケース 1（簡易版）：HR エージェント単体（従業員情報の照会）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+    participant AOAI as Azure OpenAI
+    participant HR as hr-agent
+    participant MCP as mcp-server
+
+    Client->>Main: POST /chat (E001 情報照会)
+    Main->>AOAI: ルーティング判断
+    AOAI-->>Main: call_hr_agent を選択
+    Main->>HR: POST /a2a (tasks/send)
+    HR->>MCP: MCP セッション開始・ツール取得
+    HR->>AOAI: ツール選択
+    AOAI-->>HR: get_employee_info を選択
+    HR->>MCP: get_employee_info 実行
+    MCP-->>HR: 従業員データ返却
+    HR->>AOAI: 回答生成
+    AOAI-->>HR: HR 回答テキスト
+    HR->>MCP: MCP セッション終了
+    HR-->>Main: 200 OK (A2A タスク完了)
+    Main->>AOAI: 最終回答生成
+    AOAI-->>Main: 最終回答テキスト
+    Main-->>Client: 200 OK (レスポンス返却)
+```
+
+---
+
+## テストケース 2（簡易版）：IT エージェント単体（利用可能なノート PC の照会）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+    participant AOAI as Azure OpenAI
+    participant IT as it-agent
+    participant MCP as mcp-server
+
+    Client->>Main: POST /chat (空きノートPC照会)
+    Main->>AOAI: ルーティング判断
+    AOAI-->>Main: call_it_agent を選択
+    Main->>IT: POST /a2a (tasks/send)
+    IT->>MCP: MCP セッション開始・ツール取得
+    IT->>AOAI: ツール選択
+    AOAI-->>IT: get_available_laptops を選択
+    IT->>MCP: get_available_laptops 実行
+    MCP-->>IT: 空き PC リスト返却
+    IT->>AOAI: 回答生成
+    AOAI-->>IT: IT 回答テキスト
+    IT->>MCP: MCP セッション終了
+    IT-->>Main: 200 OK (A2A タスク完了)
+    Main->>AOAI: 最終回答生成
+    AOAI-->>Main: 最終回答テキスト
+    Main-->>Client: 200 OK (レスポンス返却)
+```
+
+---
+
+## テストケース 3（簡易版）：HR + IT エージェント連携（従業員確認と PC 割り当て）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+    participant AOAI as Azure OpenAI
+    participant HR as hr-agent
+    participant IT as it-agent
+    participant MCP as mcp-server
+
+    Client->>Main: POST /chat (E002確認 & PC割り当て)
+    Main->>AOAI: タスク分解・ルーティング判断
+    AOAI-->>Main: call_hr_agent + call_it_agent (並列)
+
+    par 並列 A2A オーケストレーション
+        Main->>HR: POST /a2a (E002 照会)
+        HR->>MCP: セッション開始 & get_employee_info
+        MCP-->>HR: E002 情報返却
+        HR->>AOAI: HR 回答生成
+        HR->>MCP: セッション終了
+        HR-->>Main: 200 OK (E002 情報)
+    and
+        Main->>IT: POST /a2a (E002 へ PC 割り当て)
+        IT->>MCP: セッション開始 & get_available_laptops
+        MCP-->>IT: 空き PC 一覧返却
+        IT->>AOAI: 割当対象を決定
+        IT->>MCP: assign_equipment 実行
+        MCP-->>IT: 割り当て完了
+        IT->>AOAI: IT 回答生成
+        IT->>MCP: セッション終了
+        IT-->>Main: 200 OK (割り当て結果)
+    end
+
+    Main->>AOAI: 複数サブエージェント結果を集約
+    AOAI-->>Main: 統合回答テキスト
+    Main-->>Client: 200 OK (統合レスポンス返却)
+```
+
+---
+
+## テストケース 4（簡易版）：Salesforce エージェント単体（Salesforce タスク一覧取得）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+    participant AOAI as Azure OpenAI
+    participant SF as salesforce-agent
+    participant SFMCP as 外部 Salesforce MCP Server
+
+    Client->>Main: POST /chat (Salesforce タスク照会)
+    Main->>AOAI: ルーティング判断
+    AOAI-->>Main: call_salesforce_agent を選択
+    Main->>SF: POST /a2a (tasks/send)
+
+    alt 外部 Salesforce MCP が到達可能な場合
+        SF->>SFMCP: MCP セッション開始・ツール取得 (getSFTask)
+        SF->>AOAI: ツール選択
+        SF->>SFMCP: getSFTask 実行
+        SFMCP-->>SF: タスク一覧返却
+        SF->>AOAI: 結果整理・回答生成
+        SF->>SFMCP: MCP セッション終了
+        SF-->>Main: 200 OK (タスク一覧)
+    else 外部 Salesforce MCP が接続不可の場合
+        SF->>SFMCP: MCP 接続試行
+        SFMCP--xSF: ConnectError
+        SF-->>Main: 500 Internal Server Error
+        Note over Main: 例外を捕捉しエラー内容を文字列で保持
+    end
+
+    Main->>AOAI: 最終回答（または代替案）生成
+    AOAI-->>Main: 最終回答テキスト
+    Main-->>Client: 200 OK (レスポンス返却)
+```
+
+---
+
+## テストケース 5（簡易版）：異常系（空メッセージによるバリデーションエラー）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Postman
+    participant Main as main-agent
+
+    Client->>Main: POST /chat (空メッセージ)
+    Note over Main: 入力チェックでエラー（LLM / サブエージェント未呼び出し）
+    Main-->>Client: 400 Bad Request
+```
