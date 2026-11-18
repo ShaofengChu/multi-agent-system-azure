@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 import httpx
-from openai import AsyncAzureOpenAI
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +14,12 @@ DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")
 
 AGENT_CONFIGS: dict[str, dict[str, str]] = {
     "call_hr_agent": {
-        "url": os.environ.get("HR_AGENT_URL", "http://hr-agent:8080").rstrip("/"),
+        "url": os.environ.get("HR_AGENT_URL", "http://quizzical_kepler:8000/hr-agent").rstrip("/"),
         "fallback_name": "HR Agent",
         "fallback_description": "HR関連業務（従業員情報の照会、入社プロセスなど）を処理するサブエージェントに問い合わせます。",
     },
     "call_it_agent": {
-        "url": os.environ.get("IT_AGENT_URL", "http://it-agent:8080").rstrip("/"),
+        "url": os.environ.get("IT_AGENT_URL", "http://quizzical_kepler:8000/it-agent").rstrip("/"),
         "fallback_name": "IT Agent",
         "fallback_description": "IT機器関連業務（機器の照会、従業員への割り当てなど）を処理するサブエージェントに問い合わせます。",
     },
@@ -27,17 +27,28 @@ AGENT_CONFIGS: dict[str, dict[str, str]] = {
 
 _discovered_cards: dict[str, dict[str, Any]] = {}
 _openai_tools_cache: dict[str, dict[str, Any]] = {}
-_client: AsyncAzureOpenAI | None = None
+_client: AsyncOpenAI | None = None
 
 
-def _get_openai_client() -> AsyncAzureOpenAI:
-    """Lazily initialize the AsyncAzureOpenAI client."""
+def _resolve_openai_base_url() -> str:
+    """Resolve the OpenAI-compatible Kong AI Gateway base URL ending in /v1."""
+    raw = (
+        os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("AZURE_OPENAI_ENDPOINT")
+        or "http://quizzical_kepler:8000/v1"
+    ).rstrip("/")
+    return raw if raw.endswith("/v1") else f"{raw}/v1"
+
+
+def _get_openai_client() -> AsyncOpenAI:
+    """Lazily initialize the AsyncOpenAI client routed through Kong AI Gateway."""
     global _client
     if _client is None:
-        _client = AsyncAzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_API_KEY"],
-            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+        _client = AsyncOpenAI(
+            base_url=_resolve_openai_base_url(),
+            api_key=os.environ.get("AZURE_OPENAI_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or "kong-managed",
         )
     return _client
 
@@ -169,8 +180,10 @@ async def send_a2a_task(agent_url: str, query: str) -> str:
             },
         },
     }
+    base = agent_url.rstrip("/")
+    endpoint = base if base.endswith("/a2a") else f"{base}/a2a"
     async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(f"{agent_url}/a2a", json=payload)
+        resp = await client.post(endpoint, json=payload)
         resp.raise_for_status()
         return _extract_a2a_result_text(resp.json())
 
@@ -190,11 +203,17 @@ async def _execute_tool_call(tool_name: str, arguments_json: str) -> str:
     if not isinstance(query, str) or not query.strip():
         return "エラー: 'query' パラメータが空です。"
 
+    card_url = _discovered_cards.get(tool_name, {}).get("url")
+    target_url = (
+        card_url.rstrip("/")
+        if isinstance(card_url, str) and card_url.strip()
+        else cfg["url"]
+    )
     try:
-        return await send_a2a_task(cfg["url"], query)
+        return await send_a2a_task(target_url, query)
     except Exception as exc:
-        logger.exception("Failed A2A call to %s (%s)", tool_name, cfg["url"])
-        return f"エラー: {cfg['fallback_name']} ({cfg['url']}) との通信に失敗しました: {exc}"
+        logger.exception("Failed A2A call to %s (%s)", tool_name, target_url)
+        return f"エラー: {cfg['fallback_name']} ({target_url}) との通信に失敗しました: {exc}"
 
 
 async def process_main_task(user_input: str) -> str:

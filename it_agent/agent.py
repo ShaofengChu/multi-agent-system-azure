@@ -1,14 +1,26 @@
-from openai import AzureOpenAI
+from openai import OpenAI
 import os, json
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-MCP_URL = os.environ.get("MCP_SERVER_URL", "http://localhost:8003/mcp")
+MCP_URL = os.environ.get("MCP_SERVER_URL", "http://quizzical_kepler:8000/mcp")
 
-client = AzureOpenAI(
-    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-    api_key=os.environ["AZURE_OPENAI_API_KEY"],
-    api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+
+def _resolve_openai_base_url() -> str:
+    """Resolve the OpenAI-compatible Kong AI Gateway base URL ending in /v1."""
+    raw = (
+        os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("AZURE_OPENAI_ENDPOINT")
+        or "http://quizzical_kepler:8000/v1"
+    ).rstrip("/")
+    return raw if raw.endswith("/v1") else f"{raw}/v1"
+
+
+client = OpenAI(
+    base_url=_resolve_openai_base_url(),
+    api_key=os.environ.get("AZURE_OPENAI_API_KEY")
+    or os.environ.get("OPENAI_API_KEY")
+    or "kong-managed",
 )
 
 DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")

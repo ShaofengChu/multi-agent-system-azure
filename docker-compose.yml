@@ -23,12 +23,13 @@ services:
     expose:
       - "8080"
     environment:
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
+      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - MCP_SERVER_URL=http://mcp-server:8080/mcp
-      - AGENT_URL=http://hr-agent:8080
+      - MCP_SERVER_URL=http://quizzical_kepler:8000/mcp
+      - AGENT_URL=http://quizzical_kepler:8000/hr-agent
     depends_on:
       - mcp-server
     networks:
@@ -42,12 +43,13 @@ services:
     expose:
       - "8080"
     environment:
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
+      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - MCP_SERVER_URL=http://mcp-server:8080/mcp
-      - AGENT_URL=http://it-agent:8080
+      - MCP_SERVER_URL=http://quizzical_kepler:8000/mcp
+      - AGENT_URL=http://quizzical_kepler:8000/it-agent
     depends_on:
       - mcp-server
     networks:
@@ -61,12 +63,13 @@ services:
     ports:
       - "8008:8000"
     environment:
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
+      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - HR_AGENT_URL=http://hr-agent:8080
-      - IT_AGENT_URL=http://it-agent:8080
+      - HR_AGENT_URL=http://quizzical_kepler:8000/hr-agent
+      - IT_AGENT_URL=http://quizzical_kepler:8000/it-agent
     depends_on:
       - hr-agent
       - it-agent

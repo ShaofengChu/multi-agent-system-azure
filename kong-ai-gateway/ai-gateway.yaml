@@ -1,0 +1,100 @@
+_defaults:
+  kongctl:
+    namespace: multi-agent-system-azure
+
+ai_gateways:
+  - ref: local-poc-ai-gateway
+    _external:
+      id: eda85db5-f3bb-491b-9ddd-3b8858147ca5
+    model_providers:
+      - ref: azure-openai-provider
+        name: azure-openai-provider
+        display_name: Azure OpenAI Provider
+        type: azure
+        config:
+          instance: nttdata-ipaas-azure-openai
+          auth:
+            type: basic
+            headers:
+              - name: api-key
+                value: !secret
+                  source: !env AZURE_OPENAI_API_KEY
+    models:
+      - ref: gpt-5-mini
+        name: gpt-5-mini
+        display_name: GPT-5 Mini
+        type: model
+        enabled: true
+        capabilities:
+          - generate
+        formats:
+          - type: openai
+        config:
+          route:
+            paths:
+              - /v1
+            strip_path: true
+            model:
+              body_param: model
+              values:
+                - gpt-5-mini
+        targets:
+          - name: gpt-5-mini
+            provider: azure-openai-provider
+            allow_auth_override: false
+            config:
+              type: azure
+              deployment_id: gpt-5-mini
+              api_version: "2024-12-01-preview"
+    agents:
+      - ref: main-agent
+        name: main-agent
+        display_name: Main Agent
+        type: http
+        enabled: true
+        config:
+          url: http://main-agent:8000
+          route:
+            paths:
+              - /main-agent
+              - /chat
+              - /health
+            strip_path: false
+      - ref: hr-agent
+        name: hr-agent
+        display_name: HR Agent
+        type: a2a
+        enabled: true
+        config:
+          url: http://hr-agent:8080
+          route:
+            paths:
+              - /hr-agent
+            strip_path: true
+      - ref: it-agent
+        name: it-agent
+        display_name: IT Agent
+        type: a2a
+        enabled: true
+        config:
+          url: http://it-agent:8080
+          route:
+            paths:
+              - /it-agent
+            strip_path: true
+    mcp_servers:
+      - ref: mcp-server
+        name: mcp-server
+        display_name: HR IT MCP Server
+        type: passthrough-listener
+        enabled: true
+        config:
+          url: http://mcp-server:8080/mcp
+          server:
+            forward_client_headers: true
+          route:
+            paths:
+              - /mcp
+            strip_path: true
+            request_buffering: false
+            response_buffering: false

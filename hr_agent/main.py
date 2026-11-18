@@ -9,7 +9,7 @@ from agent import process_hr_task
 
 app = FastAPI(title="HR Agent")
 
-AGENT_URL = os.environ.get("AGENT_URL", "http://hr-agent:8080")
+AGENT_URL = os.environ.get("AGENT_URL", "http://quizzical_kepler:8000/hr-agent")
 
 
 class Message(BaseModel):

@@ -23,6 +23,7 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/chat")
+@app.post("/main-agent/chat")
 async def chat(req: ChatRequest) -> dict[str, Any]:
     """Accept a user query and orchestrate subagents via A2A."""
     user_text = (req.message or req.query or "").strip()
@@ -37,6 +38,7 @@ async def chat(req: ChatRequest) -> dict[str, Any]:
 
 
 @app.get("/health")
+@app.get("/main-agent/health")
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok", "agent": "main-agent"}
