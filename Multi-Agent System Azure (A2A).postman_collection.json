@@ -1,0 +1,164 @@
+{
+  "info": {
+    "_postman_id": "d6841739-df01-4e2d-aa3b-5b42fb9ad09c",
+    "name": "Multi-Agent System Azure (A2A)",
+    "description": "ローカル (localhost:8000) および ACA 用のマルチエージェントテストコレクション",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53774891"
+  },
+  "item": [
+    {
+      "name": "0. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "1. HR Agent - 従業員情報の照会",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"従業員 E001 の基本情報を教えてください。\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. IT Agent - 利用可能なノートPC照会",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"現在利用可能なノートパソコンを教えてください。\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. HR + IT Agent 連携 - 従業員確認とPC割り当て",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"従業員 E002 の情報を確認し、利用可能なノートパソコンを1台割り当ててください。\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Salesforce Agent - タスク一覧取得",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Salesforce のタスク一覧を取得して整理してください。\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. 異常系 - 空メッセージ (400 Bad Request)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8008"
+    }
+  ]
+}
