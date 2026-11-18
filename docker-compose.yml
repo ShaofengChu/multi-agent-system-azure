@@ -3,7 +3,6 @@
 # AZURE_OPENAI_API_KEY=
 # AZURE_OPENAI_API_VERSION=
 # AZURE_OPENAI_DEPLOYMENT_NAME=
-# SALESFORCE_MCP_SERVER_URL=
 # docker-compose up --build
 # docker-compose down
 
@@ -56,23 +55,6 @@ services:
     stdin_open: true
     tty: true
 
-  salesforce-agent:
-    build:
-      context: ./salesforce_agent
-    expose:
-      - "8080"
-    environment:
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
-      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
-      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - SALESFORCE_MCP_SERVER_URL=${SALESFORCE_MCP_SERVER_URL:-https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp}
-      - AGENT_URL=http://salesforce-agent:8080
-    networks:
-      - agent_internal_net
-    stdin_open: true
-    tty: true
-
   main-agent:
     build:
       context: ./main_agent
@@ -85,11 +67,9 @@ services:
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
       - HR_AGENT_URL=http://hr-agent:8080
       - IT_AGENT_URL=http://it-agent:8080
-      - SALESFORCE_AGENT_URL=http://salesforce-agent:8080
     depends_on:
       - hr-agent
       - it-agent
-      - salesforce-agent
     networks:
       - agent_internal_net
     stdin_open: true

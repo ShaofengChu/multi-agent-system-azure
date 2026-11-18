@@ -23,11 +23,6 @@ AGENT_CONFIGS: dict[str, dict[str, str]] = {
         "fallback_name": "IT Agent",
         "fallback_description": "IT機器関連業務（機器の照会、従業員への割り当てなど）を処理するサブエージェントに問い合わせます。",
     },
-    "call_salesforce_agent": {
-        "url": os.environ.get("SALESFORCE_AGENT_URL", "http://salesforce-agent:8080").rstrip("/"),
-        "fallback_name": "Salesforce Agent",
-        "fallback_description": "Salesforceタスク管理（タスク情報の取得と照会）を処理するサブエージェントに問い合わせます。",
-    },
 }
 
 _discovered_cards: dict[str, dict[str, Any]] = {}
@@ -215,8 +210,7 @@ async def process_main_task(user_input: str) -> str:
                 "ユーザーからの問い合わせ内容を分析し、必要に応じて以下の専門サブエージェントをツールとして呼び出してください:\n"
                 "- call_hr_agent: 従業員情報の照会、入社手続きなどのHR業務\n"
                 "- call_it_agent: ノートPCなどIT機器の在庫照会、機器の割り当てなどのIT業務\n"
-                "- call_salesforce_agent: Salesforce上のタスク情報の照会・管理\n"
-                "複数のドメインにまたがる依頼（例：従業員情報とIT機器の割り当てを同時に行う、Salesforceタスクと従業員情報を確認するなど）の場合は、"
+                "複数のドメインにまたがる依頼（例：従業員情報とIT機器の割り当てを同時に行う）の場合は、"
                 "適切なサブエージェントを必要な数だけ（並列または順次）呼び出し、取得した結果を分かりやすく整理して日本語で回答してください。"
             ),
         },

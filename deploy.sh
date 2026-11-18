@@ -4,14 +4,13 @@
 # export AZURE_OPENAI_API_KEY=
 # export AZURE_OPENAI_API_VERSION=
 # export AZURE_OPENAI_DEPLOYMENT_NAME=
-# export SALESFORCE_MCP_SERVER_URL=
 
 set -euo pipefail
 
 # ============================================================
 # Azure Container Apps Deployment Script
 # Deploys:
-#   - Internal only: MCP Server, HR Agent, IT Agent, Salesforce Agent
+#   - Internal only: MCP Server, HR Agent, IT Agent
 #   - External only: Main Agent (A2A Orchestrator)
 # Idempotent: safe to re-run after a partial or failed run.
 # ============================================================
@@ -143,14 +142,11 @@ az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
     --image it-agent:latest --file ./it_agent/Dockerfile ./it_agent
 
 az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
-    --image salesforce-agent:latest --file ./salesforce_agent/Dockerfile ./salesforce_agent
-
-az acr build --registry "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
     --image main-agent:latest --file ./main_agent/Dockerfile ./main_agent
 
 # --- Step 4: Deploy MCP Server (Internal Ingress) ---
 echo ""
-echo "▶ 1/5 Deploying MCP Server (internal)..."
+echo "▶ 1/4 Deploying MCP Server (internal)..."
 deploy_containerapp "mcp-server" \
     "${ACR_LOGIN_SERVER}/mcp-server:latest" \
     "internal" \
@@ -162,7 +158,7 @@ echo "   MCP Internal URL: $MCP_URL"
 
 # --- Step 5: Deploy HR Agent (Internal Ingress) ---
 echo ""
-echo "▶ 2/5 Deploying HR Agent (internal)..."
+echo "▶ 2/4 Deploying HR Agent (internal)..."
 HR_INTERNAL_URL="http://hr-agent"
 deploy_containerapp "hr-agent" \
     "${ACR_LOGIN_SERVER}/hr-agent:latest" \
@@ -177,7 +173,7 @@ deploy_containerapp "hr-agent" \
 
 # --- Step 6: Deploy IT Agent (Internal Ingress) ---
 echo ""
-echo "▶ 3/5 Deploying IT Agent (internal)..."
+echo "▶ 3/4 Deploying IT Agent (internal)..."
 IT_INTERNAL_URL="http://it-agent"
 deploy_containerapp "it-agent" \
     "${ACR_LOGIN_SERVER}/it-agent:latest" \
@@ -190,32 +186,15 @@ deploy_containerapp "it-agent" \
     "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
     "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
 
-# --- Step 7: Deploy Salesforce Agent (Internal Ingress) ---
-SALESFORCE_MCP_URL="${SALESFORCE_MCP_SERVER_URL:-https://mulesoft-generative-ai-mcp-server-4aa6a9.zlqs1p.jpn-e1.cloudhub.io/mcp}"
-SF_INTERNAL_URL="http://salesforce-agent"
+# --- Step 7: Deploy Main Agent Orchestrator (External Ingress) ---
 echo ""
-echo "▶ 4/5 Deploying Salesforce Agent (internal)..."
-deploy_containerapp "salesforce-agent" \
-    "${ACR_LOGIN_SERVER}/salesforce-agent:latest" \
-    "internal" \
-    "8080" \
-    "SALESFORCE_MCP_SERVER_URL=${SALESFORCE_MCP_URL}" \
-    "AGENT_URL=${SF_INTERNAL_URL}" \
-    "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
-    "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
-    "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
-    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
-
-# --- Step 8: Deploy Main Agent Orchestrator (External Ingress) ---
-echo ""
-echo "▶ 5/5 Deploying Main Agent (external)..."
+echo "▶ 4/4 Deploying Main Agent (external)..."
 deploy_containerapp "main-agent" \
     "${ACR_LOGIN_SERVER}/main-agent:latest" \
     "external" \
     "8000" \
     "HR_AGENT_URL=${HR_INTERNAL_URL}" \
     "IT_AGENT_URL=${IT_INTERNAL_URL}" \
-    "SALESFORCE_AGENT_URL=${SF_INTERNAL_URL}" \
     "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}" \
     "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}" \
     "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}" \
@@ -241,4 +220,3 @@ echo "🔒 Internal-Only Services (ACA Environment Internal Ingress):"
 echo "   MCP Server       : $MCP_URL"
 echo "   HR Agent         : $HR_INTERNAL_URL"
 echo "   IT Agent         : $IT_INTERNAL_URL"
-echo "   Salesforce Agent : $SF_INTERNAL_URL"
