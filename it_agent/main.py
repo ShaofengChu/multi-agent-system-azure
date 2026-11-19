@@ -9,7 +9,7 @@ from agent import process_it_task
 
 app = FastAPI(title="IT Agent")
 
-AGENT_URL = os.environ.get("AGENT_URL", "http://quizzical_kepler:8000/it-agent")
+AGENT_URL = os.environ.get("AGENT_URL", "http://kong-gateway:8000/it-agent")
 
 
 class Message(BaseModel):

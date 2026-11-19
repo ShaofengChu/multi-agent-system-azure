@@ -3,7 +3,7 @@ import os, json
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-MCP_URL = os.environ.get("MCP_SERVER_URL", "http://quizzical_kepler:8000/mcp")
+MCP_URL = os.environ.get("MCP_SERVER_URL", "http://kong-gateway:8000/mcp")
 
 
 def _resolve_openai_base_url() -> str:
@@ -11,7 +11,7 @@ def _resolve_openai_base_url() -> str:
     raw = (
         os.environ.get("OPENAI_BASE_URL")
         or os.environ.get("AZURE_OPENAI_ENDPOINT")
-        or "http://quizzical_kepler:8000/v1"
+        or "http://kong-gateway:8000/v1"
     ).rstrip("/")
     return raw if raw.endswith("/v1") else f"{raw}/v1"
 

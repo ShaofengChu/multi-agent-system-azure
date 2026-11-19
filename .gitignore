@@ -1,4 +1,10 @@
 .env
+.env.*
+!.env.example
 .vscode
 __pycache__/
 *.py[cod]
+kong-ai-gateway/certs/*.key
+kong-ai-gateway/certs/*.crt
+.plans/
+.artifacts/

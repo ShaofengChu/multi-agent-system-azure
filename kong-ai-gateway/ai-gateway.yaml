@@ -3,16 +3,18 @@ _defaults:
     namespace: multi-agent-system-azure
 
 ai_gateways:
-  - ref: local-poc-ai-gateway
+  - ref: target-ai-gateway
     _external:
-      id: eda85db5-f3bb-491b-9ddd-3b8858147ca5
+      selector:
+        matchFields:
+          name: !env KONNECT_CONTROL_PLANE_NAME
     model_providers:
       - ref: azure-openai-provider
         name: azure-openai-provider
         display_name: Azure OpenAI Provider
         type: azure
         config:
-          instance: nttdata-ipaas-azure-openai
+          instance: !env AZURE_OPENAI_INSTANCE
           auth:
             type: basic
             headers:
@@ -20,9 +22,9 @@ ai_gateways:
                 value: !secret
                   source: !env AZURE_OPENAI_API_KEY
     models:
-      - ref: gpt-5-mini
-        name: gpt-5-mini
-        display_name: GPT-5 Mini
+      - ref: chat-model
+        name: !env AZURE_OPENAI_DEPLOYMENT_NAME
+        display_name: Azure OpenAI Chat Model
         type: model
         enabled: true
         capabilities:
@@ -37,15 +39,15 @@ ai_gateways:
             model:
               body_param: model
               values:
-                - gpt-5-mini
+                - !env AZURE_OPENAI_DEPLOYMENT_NAME
         targets:
-          - name: gpt-5-mini
+          - name: !env AZURE_OPENAI_DEPLOYMENT_NAME
             provider: azure-openai-provider
             allow_auth_override: false
             config:
               type: azure
-              deployment_id: gpt-5-mini
-              api_version: "2024-12-01-preview"
+              deployment_id: !env AZURE_OPENAI_DEPLOYMENT_NAME
+              api_version: !env AZURE_OPENAI_API_VERSION
     agents:
       - ref: main-agent
         name: main-agent

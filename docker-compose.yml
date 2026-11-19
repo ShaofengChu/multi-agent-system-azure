@@ -1,10 +1,16 @@
-# ローカルデプロイには .env ファイルを作成して、下記環境変数を設定してください。
-# AZURE_OPENAI_ENDPOINT=
-# AZURE_OPENAI_API_KEY=
-# AZURE_OPENAI_API_VERSION=
-# AZURE_OPENAI_DEPLOYMENT_NAME=
-# docker-compose up --build
-# docker-compose down
+# 2フェーズ構築手順（詳細: kong-ai-gateway/SETUP_GUIDE.md）:
+#
+# [Phase 1: Kong]
+#   1. docker network create agent_internal_net
+#   2. Konnect UI 等で Control Plane 新規作成後、Self-Managed Data Plane の docker run に
+#      --name kong-gateway --network agent_internal_net を追加して起動
+#   3. kongctl apply -f kong-ai-gateway/ai-gateway.yaml
+#
+# [Phase 2: Agent / MCP]
+#   1. .env.example を .env にコピーして必要項目を設定
+#   2. docker compose up -d --build
+# 停止:
+#   docker compose down
 
 services:
   mcp-server:
@@ -23,13 +29,13 @@ services:
     expose:
       - "8080"
     environment:
-      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
-      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
+      - AZURE_OPENAI_ENDPOINT=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
+      - OPENAI_BASE_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - MCP_SERVER_URL=http://quizzical_kepler:8000/mcp
-      - AGENT_URL=http://quizzical_kepler:8000/hr-agent
+      - MCP_SERVER_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/mcp
+      - AGENT_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/hr-agent
     depends_on:
       - mcp-server
     networks:
@@ -43,13 +49,13 @@ services:
     expose:
       - "8080"
     environment:
-      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
-      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
+      - AZURE_OPENAI_ENDPOINT=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
+      - OPENAI_BASE_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - MCP_SERVER_URL=http://quizzical_kepler:8000/mcp
-      - AGENT_URL=http://quizzical_kepler:8000/it-agent
+      - MCP_SERVER_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/mcp
+      - AGENT_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/it-agent
     depends_on:
       - mcp-server
     networks:
@@ -61,15 +67,15 @@ services:
     build:
       context: ./main_agent
     ports:
-      - "8008:8000"
+      - "${MAIN_AGENT_PORT:-8008}:8000"
     environment:
-      - AZURE_OPENAI_ENDPOINT=http://quizzical_kepler:8000/v1
-      - OPENAI_BASE_URL=http://quizzical_kepler:8000/v1
+      - AZURE_OPENAI_ENDPOINT=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
+      - OPENAI_BASE_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/v1
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-5-mini}
-      - HR_AGENT_URL=http://quizzical_kepler:8000/hr-agent
-      - IT_AGENT_URL=http://quizzical_kepler:8000/it-agent
+      - HR_AGENT_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/hr-agent
+      - IT_AGENT_URL=${KONG_GATEWAY_URL:-http://kong-gateway:8000}/it-agent
     depends_on:
       - hr-agent
       - it-agent
@@ -80,4 +86,5 @@ services:
 
 networks:
   agent_internal_net:
-    driver: bridge
+    name: agent_internal_net
+    external: true

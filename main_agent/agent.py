@@ -14,12 +14,12 @@ DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")
 
 AGENT_CONFIGS: dict[str, dict[str, str]] = {
     "call_hr_agent": {
-        "url": os.environ.get("HR_AGENT_URL", "http://quizzical_kepler:8000/hr-agent").rstrip("/"),
+        "url": os.environ.get("HR_AGENT_URL", "http://kong-gateway:8000/hr-agent").rstrip("/"),
         "fallback_name": "HR Agent",
         "fallback_description": "HR関連業務（従業員情報の照会、入社プロセスなど）を処理するサブエージェントに問い合わせます。",
     },
     "call_it_agent": {
-        "url": os.environ.get("IT_AGENT_URL", "http://quizzical_kepler:8000/it-agent").rstrip("/"),
+        "url": os.environ.get("IT_AGENT_URL", "http://kong-gateway:8000/it-agent").rstrip("/"),
         "fallback_name": "IT Agent",
         "fallback_description": "IT機器関連業務（機器の照会、従業員への割り当てなど）を処理するサブエージェントに問い合わせます。",
     },
@@ -35,7 +35,7 @@ def _resolve_openai_base_url() -> str:
     raw = (
         os.environ.get("OPENAI_BASE_URL")
         or os.environ.get("AZURE_OPENAI_ENDPOINT")
-        or "http://quizzical_kepler:8000/v1"
+        or "http://kong-gateway:8000/v1"
     ).rstrip("/")
     return raw if raw.endswith("/v1") else f"{raw}/v1"
 
